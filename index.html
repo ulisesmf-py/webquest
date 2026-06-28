@@ -1,0 +1,1494 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>WebQuest · Black IA</title>
+
+<!-- Google Fonts — todos los temas -->
+<link rel="preconnect" href="https://fonts.googleapis.com">
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+<link href="https://fonts.googleapis.com/css2?family=Cinzel:wght@400;700&family=Space+Grotesk:wght@300;400;500;700&family=Lora:ital,wght@0,400;0,700;1,400&family=Share+Tech+Mono&family=Playfair+Display:ital,wght@0,700;1,400&family=Nunito:wght@400;700;900&family=Rajdhani:wght@400;600;700&family=Inter:wght@300;400;500;600&display=swap" rel="stylesheet">
+
+<!-- Firebase -->
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.2/firebase-database-compat.js"></script>
+
+<style>
+/* ═══════════════════════════════════════════
+   RESET & BASE
+═══════════════════════════════════════════ */
+*,*::before,*::after{box-sizing:border-box;margin:0;padding:0}
+html{scroll-behavior:smooth}
+body{font-family:'Inter',sans-serif;min-height:100vh;transition:background .4s,color .4s}
+button{cursor:pointer;border:none;outline:none;font-family:inherit}
+input,textarea,select{font-family:inherit;outline:none;border:none}
+img{max-width:100%}
+a{text-decoration:none}
+
+/* ═══════════════════════════════════════════
+   LOADING SCREEN
+═══════════════════════════════════════════ */
+#loading-screen{position:fixed;inset:0;background:#0a0a0a;display:flex;flex-direction:column;align-items:center;justify-content:center;z-index:9999;transition:opacity .5s}
+#loading-screen.fade-out{opacity:0;pointer-events:none}
+.loading-logo{font-family:'Space Grotesk',sans-serif;font-size:28px;font-weight:700;color:#fff;letter-spacing:.08em;margin-bottom:12px}
+.loading-logo span{color:#4488ff}
+.loading-bar{width:180px;height:2px;background:#222;border-radius:2px;overflow:hidden;margin-top:8px}
+.loading-bar-inner{height:100%;background:linear-gradient(90deg,#4488ff,#88ccff);border-radius:2px;animation:load 1.5s ease-in-out infinite}
+@keyframes load{0%{width:0%}60%{width:80%}100%{width:100%}}
+.loading-sub{font-size:12px;color:#444;margin-top:16px;font-family:'Share Tech Mono',monospace;letter-spacing:.06em}
+
+/* ═══════════════════════════════════════════
+   TEACHER LOGIN (acceso directo para profesor)
+═══════════════════════════════════════════ */
+#teacher-login{position:fixed;inset:0;background:#06090f;display:none;align-items:center;justify-content:center;z-index:8000}
+#teacher-login.visible{display:flex}
+.tl-card{background:#0d1628;border:1px solid #1e3354;border-radius:16px;padding:40px 36px;width:360px}
+.tl-logo{font-family:'Space Grotesk',sans-serif;font-size:13px;font-weight:700;color:#4488ff;letter-spacing:.12em;text-transform:uppercase;margin-bottom:24px;display:flex;align-items:center;gap:8px}
+.tl-logo::before{content:'';width:8px;height:8px;border-radius:50%;background:#4488ff;flex-shrink:0}
+.tl-title{font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;color:#fff;margin-bottom:6px}
+.tl-sub{font-size:13px;color:#5b9fd8;margin-bottom:28px}
+.tl-field{margin-bottom:16px}
+.tl-field label{display:block;font-size:11px;font-weight:600;color:#5b9fd8;letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px}
+.tl-field input{width:100%;background:#06090f;border:1px solid #1e3354;border-radius:8px;padding:10px 14px;color:#e0eaff;font-size:14px;transition:border .2s}
+.tl-field input:focus{border-color:#4488ff}
+.tl-btn{width:100%;padding:12px;background:#2255cc;border-radius:8px;color:#fff;font-family:'Space Grotesk',sans-serif;font-size:14px;font-weight:700;letter-spacing:.04em;margin-top:8px;transition:background .2s}
+.tl-btn:hover{background:#4488ff}
+.tl-err{font-size:12px;color:#ff5555;margin-top:10px;display:none}
+.tl-back{font-size:12px;color:#3a5a8a;margin-top:16px;text-align:center;cursor:pointer}
+.tl-back:hover{color:#5b9fd8}
+
+/* ═══════════════════════════════════════════
+   APP SHELL
+═══════════════════════════════════════════ */
+#app{display:none;min-height:100vh;flex-direction:column}
+#app.visible{display:flex}
+
+/* ── NAVBAR ── */
+#navbar{position:sticky;top:0;z-index:100;padding:0 24px;height:56px;display:flex;align-items:center;justify-content:space-between;border-bottom:1px solid var(--nav-border);background:var(--nav-bg);backdrop-filter:blur(12px);transition:background .4s,border .4s}
+.nav-brand{font-family:'Space Grotesk',sans-serif;font-size:15px;font-weight:700;color:var(--nav-brand);letter-spacing:.06em;display:flex;align-items:center;gap:8px}
+.nav-brand-dot{width:8px;height:8px;border-radius:50%;background:var(--accent);flex-shrink:0}
+.nav-right{display:flex;align-items:center;gap:12px}
+.nav-user{font-size:12px;color:var(--text-muted);font-family:'Share Tech Mono',monospace}
+.nav-theme-btn{background:var(--surface-2);border:1px solid var(--border);border-radius:20px;padding:5px 12px;font-size:11px;color:var(--text-secondary);font-weight:500;transition:all .2s;display:flex;align-items:center;gap:6px}
+.nav-theme-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+.nav-btn{background:var(--accent);border-radius:8px;padding:7px 16px;font-size:12px;font-weight:700;color:#fff;font-family:'Space Grotesk',sans-serif;letter-spacing:.04em;transition:all .2s}
+.nav-btn:hover{opacity:.85}
+.nav-btn.ghost{background:transparent;border:1px solid var(--border);color:var(--text-secondary)}
+.nav-btn.ghost:hover{border-color:var(--accent);color:var(--accent)}
+
+/* ═══════════════════════════════════════════
+   VISTAS
+═══════════════════════════════════════════ */
+.view{display:none;flex:1}
+.view.active{display:block}
+
+/* ── DASHBOARD ALUMNO ── */
+#view-dashboard{padding:32px 24px}
+.dash-header{max-width:860px;margin:0 auto 32px}
+.dash-greeting{font-size:13px;color:var(--text-muted);font-family:'Share Tech Mono',monospace;letter-spacing:.06em;margin-bottom:8px}
+.dash-title{font-family:var(--display-font,'Space Grotesk');font-size:28px;font-weight:700;color:var(--text-primary);margin-bottom:4px}
+.dash-sub{font-size:14px;color:var(--text-secondary)}
+.parciales-grid{max-width:860px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(240px,1fr));gap:16px}
+.parcial-card{background:var(--surface-1);border:1px solid var(--border);border-radius:16px;padding:24px;transition:transform .2s,box-shadow .2s;cursor:pointer;position:relative;overflow:hidden}
+.parcial-card::before{content:'';position:absolute;top:0;left:0;right:0;height:3px;background:var(--accent-gradient)}
+.parcial-card:hover{transform:translateY(-2px);box-shadow:0 8px 32px var(--shadow)}
+.parcial-num{font-family:'Share Tech Mono',monospace;font-size:11px;color:var(--accent);letter-spacing:.12em;text-transform:uppercase;margin-bottom:8px}
+.parcial-name{font-family:var(--display-font,'Space Grotesk');font-size:17px;font-weight:700;color:var(--text-primary);margin-bottom:4px}
+.parcial-status{font-size:12px;color:var(--text-muted)}
+.parcial-score{position:absolute;top:20px;right:20px;font-family:'Space Grotesk',sans-serif;font-size:22px;font-weight:700;color:var(--accent)}
+.parcial-action{display:inline-block;margin-top:16px;font-size:12px;font-weight:700;color:var(--accent);letter-spacing:.04em;text-transform:uppercase;font-family:'Space Grotesk',sans-serif}
+.status-dot{display:inline-block;width:6px;height:6px;border-radius:50%;margin-right:6px;vertical-align:middle}
+.status-dot.empty{background:#555}
+.status-dot.draft{background:#f0a840}
+.status-dot.done{background:#44cc88}
+
+/* ── SELECTOR DE TEMA ── */
+#view-theme-selector{padding:32px 24px}
+.ts-header{max-width:900px;margin:0 auto 28px}
+.ts-back{display:inline-flex;align-items:center;gap:6px;font-size:12px;color:var(--text-muted);cursor:pointer;margin-bottom:16px;transition:color .2s}
+.ts-back:hover{color:var(--accent)}
+.ts-back svg{width:14px;height:14px}
+.ts-title{font-family:var(--display-font,'Space Grotesk');font-size:24px;font-weight:700;color:var(--text-primary);margin-bottom:4px}
+.ts-sub{font-size:13px;color:var(--text-secondary)}
+.themes-grid{max-width:900px;margin:0 auto;display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:14px}
+.theme-card{border-radius:14px;overflow:hidden;cursor:pointer;transition:transform .2s,box-shadow .2s;border:2px solid transparent}
+.theme-card:hover{transform:translateY(-3px)}
+.theme-card.selected{border-color:var(--accent)}
+.theme-preview{height:140px;position:relative;overflow:hidden}
+.theme-info{padding:12px 14px}
+.theme-name{font-size:13px;font-weight:700;margin-bottom:2px}
+.theme-subject{font-size:11px;opacity:.7}
+.theme-select-btn{display:block;width:100%;margin-top:10px;padding:8px;border-radius:8px;font-size:12px;font-weight:700;letter-spacing:.04em;text-align:center;transition:all .2s}
+
+/* ── EDITOR ── */
+#view-editor{display:none;flex-direction:column;min-height:calc(100vh - 56px)}
+#view-editor.active{display:flex}
+.editor-layout{display:grid;grid-template-columns:220px 1fr;flex:1;min-height:0}
+.editor-sidebar{border-right:1px solid var(--border);padding:20px 0;overflow-y:auto;background:var(--surface-1)}
+.sidebar-section-title{font-size:10px;font-weight:700;color:var(--text-muted);letter-spacing:.12em;text-transform:uppercase;padding:0 18px;margin-bottom:10px}
+.sidebar-item{display:flex;align-items:center;gap:10px;padding:10px 18px;cursor:pointer;transition:background .15s;border-left:3px solid transparent}
+.sidebar-item:hover{background:var(--surface-2)}
+.sidebar-item.active{background:var(--surface-2);border-left-color:var(--accent)}
+.sidebar-icon{font-size:14px;flex-shrink:0}
+.sidebar-label{font-size:13px;font-weight:500;color:var(--text-primary)}
+.sidebar-check{margin-left:auto;font-size:11px;color:var(--accent)}
+.editor-main{overflow-y:auto;padding:28px 32px}
+.section-editor{max-width:720px;margin:0 auto}
+.se-title{font-family:var(--display-font,'Space Grotesk');font-size:22px;font-weight:700;color:var(--text-primary);margin-bottom:6px}
+.se-desc{font-size:13px;color:var(--text-secondary);margin-bottom:24px;line-height:1.6}
+.se-divider{height:1px;background:var(--border);margin:24px 0}
+
+/* Bloques de contenido */
+.blocks-list{display:flex;flex-direction:column;gap:12px;margin-bottom:16px}
+.block-item{background:var(--surface-1);border:1px solid var(--border);border-radius:12px;overflow:hidden}
+.block-header{display:flex;align-items:center;gap:10px;padding:10px 14px;background:var(--surface-2);border-bottom:1px solid var(--border)}
+.block-type-badge{font-size:10px;font-weight:700;color:var(--accent);background:var(--accent-soft);padding:2px 8px;border-radius:20px;letter-spacing:.06em;text-transform:uppercase}
+.block-del{margin-left:auto;font-size:18px;color:var(--text-muted);background:none;border:none;cursor:pointer;line-height:1;transition:color .2s}
+.block-del:hover{color:#ff5555}
+.block-body{padding:12px 14px}
+.block-textarea{width:100%;background:transparent;color:var(--text-primary);font-size:14px;line-height:1.7;resize:vertical;min-height:80px;border:1px solid var(--border);border-radius:8px;padding:10px;transition:border .2s}
+.block-textarea:focus{border-color:var(--accent)}
+.block-url-input{width:100%;background:transparent;color:var(--text-primary);font-size:13px;border:1px solid var(--border);border-radius:8px;padding:10px 12px;transition:border .2s}
+.block-url-input:focus{border-color:var(--accent)}
+.block-preview{margin-top:10px;border-radius:8px;overflow:hidden;background:var(--surface-2)}
+.block-preview iframe{width:100%;height:220px;border:none;display:block}
+.block-preview img{width:100%;max-height:220px;object-fit:cover;display:block}
+.url-hint{font-size:11px;color:var(--text-muted);margin-top:6px}
+
+/* Add block menu */
+.add-block-row{display:flex;gap:8px;flex-wrap:wrap}
+.add-block-btn{display:flex;align-items:center;gap:6px;padding:8px 14px;border:1px dashed var(--border);border-radius:8px;font-size:12px;font-weight:600;color:var(--text-secondary);background:transparent;transition:all .2s}
+.add-block-btn:hover{border-color:var(--accent);color:var(--accent)}
+
+/* Toolbar de formato texto */
+.text-toolbar{display:flex;gap:4px;margin-bottom:8px;flex-wrap:wrap}
+.fmt-btn{padding:4px 10px;border-radius:6px;font-size:12px;font-weight:700;background:var(--surface-2);border:1px solid var(--border);color:var(--text-secondary);transition:all .2s}
+.fmt-btn:hover{background:var(--accent);color:#fff;border-color:var(--accent)}
+
+/* Autoguardado */
+.autosave-bar{position:fixed;bottom:20px;right:24px;background:var(--surface-1);border:1px solid var(--border);border-radius:20px;padding:7px 16px;font-size:11px;color:var(--text-muted);font-family:'Share Tech Mono',monospace;letter-spacing:.06em;display:flex;align-items:center;gap:8px;transition:all .3s;z-index:50}
+.autosave-dot{width:6px;height:6px;border-radius:50%;background:#44cc88;flex-shrink:0}
+.autosave-dot.saving{background:#f0a840;animation:pulse 1s infinite}
+@keyframes pulse{0%,100%{opacity:1}50%{opacity:.4}}
+
+/* ── PANEL PROFESOR ── */
+#view-teacher{padding:32px 24px}
+.teacher-panel{max-width:900px;margin:0 auto}
+.tp-header{margin-bottom:28px}
+.tp-title{font-family:'Space Grotesk',sans-serif;font-size:26px;font-weight:700;color:var(--text-primary);margin-bottom:4px}
+.tp-sub{font-size:13px;color:var(--text-secondary)}
+.students-table{width:100%;border-collapse:collapse;background:var(--surface-1);border-radius:12px;overflow:hidden;border:1px solid var(--border)}
+.students-table th{background:var(--surface-2);padding:12px 16px;text-align:left;font-size:11px;font-weight:700;color:var(--text-muted);letter-spacing:.08em;text-transform:uppercase;border-bottom:1px solid var(--border)}
+.students-table td{padding:12px 16px;border-bottom:1px solid var(--border);font-size:13px;color:var(--text-primary);vertical-align:middle}
+.students-table tr:last-child td{border-bottom:none}
+.students-table tr:hover td{background:var(--surface-2)}
+.grade-input{width:70px;background:var(--surface-2);border:1px solid var(--border);border-radius:6px;padding:5px 8px;color:var(--text-primary);font-size:13px;text-align:center;transition:border .2s}
+.grade-input:focus{border-color:var(--accent)}
+.save-grade-btn{padding:5px 12px;background:var(--accent);border-radius:6px;font-size:11px;font-weight:700;color:#fff;transition:all .2s}
+.save-grade-btn:hover{opacity:.8}
+.view-wq-btn{padding:5px 12px;background:transparent;border:1px solid var(--border);border-radius:6px;font-size:11px;color:var(--text-secondary);transition:all .2s}
+.view-wq-btn:hover{border-color:var(--accent);color:var(--accent)}
+.tp-tabs{display:flex;gap:2px;background:var(--surface-2);border-radius:10px;padding:3px;margin-bottom:24px;width:fit-content}
+.tp-tab{padding:8px 20px;border-radius:8px;font-size:13px;font-weight:600;color:var(--text-muted);cursor:pointer;transition:all .2s}
+.tp-tab.active{background:var(--accent);color:#fff}
+
+/* ── PREVIEW DEL WEBQUEST ── */
+#view-preview{padding:0}
+.preview-topbar{padding:12px 24px;border-bottom:1px solid var(--border);display:flex;align-items:center;gap:12px;background:var(--nav-bg)}
+.preview-topbar .nav-btn{padding:7px 16px;font-size:12px}
+.preview-content{padding:40px 24px}
+
+/* ═══════════════════════════════════════════
+   MODAL SELECCIONAR TEMA (inline)
+═══════════════════════════════════════════ */
+.modal-overlay{position:fixed;inset:0;background:#00000088;z-index:500;display:none;align-items:center;justify-content:center;padding:20px}
+.modal-overlay.open{display:flex}
+.modal{background:var(--surface-1);border:1px solid var(--border);border-radius:20px;padding:28px;width:100%;max-width:860px;max-height:90vh;overflow-y:auto}
+.modal-title{font-family:'Space Grotesk',sans-serif;font-size:20px;font-weight:700;color:var(--text-primary);margin-bottom:4px}
+.modal-sub{font-size:13px;color:var(--text-secondary);margin-bottom:24px}
+
+/* ═══════════════════════════════════════════
+   TEMAS VISUALES — variables CSS dinámicas
+═══════════════════════════════════════════ */
+
+/* DEFAULT (interfaz base — dark neutral) */
+:root{
+  --display-font:'Space Grotesk',sans-serif;
+  --body-font:'Inter',sans-serif;
+  --mono-font:'Share Tech Mono',monospace;
+  --text-primary:#e8eaf0;
+  --text-secondary:#8a9ab8;
+  --text-muted:#4a5a7a;
+  --surface-1:#0d1220;
+  --surface-2:#111827;
+  --border:#1e2d48;
+  --nav-bg:#0a0f1ccc;
+  --nav-border:#1e2d48;
+  --nav-brand:#e8eaf0;
+  --accent:#4488ff;
+  --accent-soft:#4488ff22;
+  --accent-gradient:linear-gradient(90deg,#2255cc,#4488ff,#88ccff);
+  --shadow:#00000044;
+  --btn-radius:8px;
+}
+
+/* ── TEMA: COSMOS PROFUNDO ── */
+body.theme-cosmos{
+  --display-font:'Cinzel',serif;
+  --body-font:'Share Tech Mono',monospace;
+  --text-primary:#f0e6c0;
+  --text-secondary:#8fa3b8;
+  --text-muted:#4a6a8a;
+  --surface-1:#0a1628;
+  --surface-2:#0d1f3c;
+  --border:#1e3354;
+  --nav-bg:#07101ecc;
+  --nav-border:#1e3354;
+  --nav-brand:#f0e6c0;
+  --accent:#c9a84c;
+  --accent-soft:#c9a84c22;
+  --accent-gradient:linear-gradient(90deg,#c9a84c,#e8d080,#5b9fd8);
+  --shadow:#c9a84c22;
+  --btn-radius:2px;
+  background:#05080f;
+  color:#f0e6c0;
+}
+body.theme-cosmos #navbar{font-family:'Cinzel',serif}
+body.theme-cosmos .parcial-card{border-radius:4px}
+body.theme-cosmos .nav-btn{border-radius:2px;font-family:'Cinzel',serif;letter-spacing:.1em}
+
+/* ── TEMA: SELVA DIGITAL ── */
+body.theme-selva{
+  --display-font:'Nunito',sans-serif;
+  --body-font:'Nunito',sans-serif;
+  --text-primary:#c8f0c8;
+  --text-secondary:#7ab87a;
+  --text-muted:#3a6a3a;
+  --surface-1:#0d2b0d;
+  --surface-2:#0a200a;
+  --border:#1e4a1e;
+  --nav-bg:#071507cc;
+  --nav-border:#1e4a1e;
+  --nav-brand:#c8f0c8;
+  --accent:#55cc55;
+  --accent-soft:#55cc5522;
+  --accent-gradient:linear-gradient(90deg,#1e7a1e,#55cc55,#a8ff80);
+  --shadow:#55cc5522;
+  --btn-radius:30px;
+  background:#071507;
+  color:#c8f0c8;
+}
+body.theme-selva .nav-btn{font-family:'Nunito',sans-serif;font-weight:900}
+body.theme-selva .parcial-card{border-radius:20px}
+
+/* ── TEMA: NEON CREATIVO ── */
+body.theme-neon{
+  --display-font:'Space Grotesk',sans-serif;
+  --body-font:'Space Grotesk',sans-serif;
+  --text-primary:#f0d0ff;
+  --text-secondary:#9966aa;
+  --text-muted:#5a3a7a;
+  --surface-1:#1a0030;
+  --surface-2:#220044;
+  --border:#5500aa44;
+  --nav-bg:#0e0216cc;
+  --nav-border:#5500aa;
+  --nav-brand:#f0d0ff;
+  --accent:#dd44ff;
+  --accent-soft:#dd44ff22;
+  --accent-gradient:linear-gradient(90deg,#7700cc,#dd44ff,#ff88cc);
+  --shadow:#dd44ff22;
+  --btn-radius:4px;
+  background:#0e0216;
+  color:#f0d0ff;
+}
+body.theme-neon .nav-btn{box-shadow:0 0 12px #dd44ff44}
+
+/* ── TEMA: PERGAMINO ANTIGUO ── */
+body.theme-pergamino{
+  --display-font:'Playfair Display',serif;
+  --body-font:'Lora',serif;
+  --text-primary:#3a2010;
+  --text-secondary:#8a6040;
+  --text-muted:#b0906a;
+  --surface-1:#fffaf2;
+  --surface-2:#fdf3e0;
+  --border:#e8d0a8;
+  --nav-bg:#f5efe0ee;
+  --nav-border:#c8a070;
+  --nav-brand:#3a2010;
+  --accent:#c06000;
+  --accent-soft:#c0600022;
+  --accent-gradient:linear-gradient(90deg,#8a4000,#c06000,#f0a840);
+  --shadow:#c0600022;
+  --btn-radius:2px;
+  background:#f5efe0;
+  color:#3a2010;
+}
+body.theme-pergamino .nav-btn{font-family:'Playfair Display',serif}
+body.theme-pergamino .parcial-card{border-radius:4px}
+
+/* ── TEMA: BLUEPRINT TECNICO ── */
+body.theme-blueprint{
+  --display-font:'Rajdhani',sans-serif;
+  --body-font:'Share Tech Mono',monospace;
+  --text-primary:#0a1a5a;
+  --text-secondary:#4a5a8a;
+  --text-muted:#8a9ab8;
+  --surface-1:#f8f9ff;
+  --surface-2:#e8eeff;
+  --border:#dde4ff;
+  --nav-bg:#eef2ffee;
+  --nav-border:#aabcff;
+  --nav-brand:#0a1a5a;
+  --accent:#2255cc;
+  --accent-soft:#2255cc22;
+  --accent-gradient:linear-gradient(90deg,#0a1a5a,#2255cc,#88ccff);
+  --shadow:#2255cc22;
+  --btn-radius:4px;
+  background:#eef2ff;
+  color:#0a1a5a;
+}
+body.theme-blueprint .nav-btn{font-family:'Rajdhani',sans-serif;font-size:15px;letter-spacing:.08em}
+
+/* ── TEMA: CLINICA VITAL ── */
+body.theme-clinica{
+  --display-font:'Space Grotesk',sans-serif;
+  --body-font:'Space Grotesk',sans-serif;
+  --text-primary:#3a0808;
+  --text-secondary:#7a2020;
+  --text-muted:#aaaaaa;
+  --surface-1:#fffafa;
+  --surface-2:#fff0f0;
+  --border:#f0dddd;
+  --nav-bg:#fff8f8ee;
+  --nav-border:#f0dddd;
+  --nav-brand:#3a0808;
+  --accent:#cc2222;
+  --accent-soft:#cc222222;
+  --accent-gradient:linear-gradient(90deg,#8a0000,#cc2222,#ff9988);
+  --shadow:#cc222222;
+  --btn-radius:6px;
+  background:#fff8f8;
+  color:#3a0808;
+}
+
+/* ── TEMA: ESTUDIO OSCURO ── */
+body.theme-estudio{
+  --display-font:'Space Grotesk',sans-serif;
+  --body-font:'Space Grotesk',sans-serif;
+  --text-primary:#ffffff;
+  --text-secondary:#888888;
+  --text-muted:#555555;
+  --surface-1:#1a1a1a;
+  --surface-2:#222222;
+  --border:#2a2a2a;
+  --nav-bg:#111111ee;
+  --nav-border:#2a2a2a;
+  --nav-brand:#ffffff;
+  --accent:#ffffff;
+  --accent-soft:#ffffff11;
+  --accent-gradient:linear-gradient(90deg,#444,#888,#ccc);
+  --shadow:#00000088;
+  --btn-radius:3px;
+  background:#111111;
+  color:#ffffff;
+}
+body.theme-estudio .nav-btn{background:#fff;color:#111}
+body.theme-estudio .nav-btn:hover{background:#ccc}
+
+/* ── TEMA: MAPA VIVO ── */
+body.theme-mapa{
+  --display-font:'Nunito',sans-serif;
+  --body-font:'Nunito',sans-serif;
+  --text-primary:#0a2a20;
+  --text-secondary:#3a6a58;
+  --text-muted:#88aaaa;
+  --surface-1:#f8fffe;
+  --surface-2:#d0f0e4;
+  --border:#88ccb0;
+  --nav-bg:#f0faf6ee;
+  --nav-border:#88ccb0;
+  --nav-brand:#0a2a20;
+  --accent:#006644;
+  --accent-soft:#00664422;
+  --accent-gradient:linear-gradient(90deg,#004433,#006644,#44ddaa);
+  --shadow:#00664422;
+  --btn-radius:10px;
+  background:#f0faf6;
+  color:#0a2a20;
+}
+body.theme-mapa .nav-btn{font-family:'Nunito',sans-serif;font-weight:900}
+
+/* ═══════════════════════════════════════════
+   THEME SWITCHER MODAL
+═══════════════════════════════════════════ */
+.ts-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(180px,1fr));gap:12px}
+.ts-card{border-radius:12px;overflow:hidden;cursor:pointer;border:2px solid transparent;transition:all .2s}
+.ts-card:hover{transform:translateY(-2px)}
+.ts-card.active-theme{border-color:var(--accent)}
+.ts-thumb{height:80px;position:relative;overflow:hidden}
+.ts-info{padding:10px 12px;background:var(--surface-2)}
+.ts-name{font-size:13px;font-weight:700;color:var(--text-primary);margin-bottom:2px}
+.ts-areas{font-size:10px;color:var(--text-muted)}
+
+/* Miniaturas de temas */
+.thumb-cosmos{background:#05080f;background-image:radial-gradient(circle at 30% 50%,#0d1f3c,#05080f)}
+.thumb-cosmos::after{content:'COSMOS';position:absolute;bottom:8px;left:12px;font-family:'Cinzel',serif;font-size:11px;color:#c9a84c;letter-spacing:.1em}
+.thumb-selva{background:#071507}
+.thumb-selva::after{content:'SELVA';position:absolute;bottom:8px;left:12px;font-family:'Nunito',sans-serif;font-weight:900;font-size:11px;color:#55cc55}
+.thumb-neon{background:#0e0216}
+.thumb-neon::after{content:'NEÓN';position:absolute;bottom:8px;left:12px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:11px;color:#dd44ff;text-shadow:0 0 8px #dd44ff}
+.thumb-pergamino{background:#f5efe0}
+.thumb-pergamino::after{content:'PERGAMINO';position:absolute;bottom:8px;left:12px;font-family:'Playfair Display',serif;font-weight:700;font-size:11px;color:#c06000}
+.thumb-blueprint{background:#eef2ff}
+.thumb-blueprint::after{content:'BLUEPRINT';position:absolute;bottom:8px;left:12px;font-family:'Rajdhani',sans-serif;font-weight:700;font-size:11px;color:#2255cc;letter-spacing:.06em}
+.thumb-clinica{background:#fff8f8}
+.thumb-clinica::after{content:'CLÍNICA';position:absolute;bottom:8px;left:12px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:11px;color:#cc2222}
+.thumb-estudio{background:#111}
+.thumb-estudio::after{content:'ESTUDIO';position:absolute;bottom:8px;left:12px;font-family:'Space Grotesk',sans-serif;font-weight:700;font-size:11px;color:#fff}
+.thumb-mapa{background:#f0faf6}
+.thumb-mapa::after{content:'MAPA';position:absolute;bottom:8px;left:12px;font-family:'Nunito',sans-serif;font-weight:900;font-size:11px;color:#006644}
+
+/* ═══════════════════════════════════════════
+   PREVIEW DEL WEBQUEST PUBLICADO
+═══════════════════════════════════════════ */
+.wq-preview-wrap{max-width:760px;margin:0 auto}
+.wq-preview-header{padding:36px 40px 24px;border-bottom:1px solid var(--border)}
+.wq-preview-tag{font-size:11px;font-family:var(--mono-font);color:var(--accent);letter-spacing:.1em;text-transform:uppercase;margin-bottom:10px}
+.wq-preview-title{font-family:var(--display-font);font-size:28px;font-weight:700;color:var(--text-primary);line-height:1.2;margin-bottom:6px}
+.wq-preview-meta{font-size:12px;color:var(--text-muted)}
+.wq-preview-sections{padding:28px 40px}
+.wq-preview-section{margin-bottom:28px}
+.wq-preview-sec-label{font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.1em;text-transform:uppercase;font-family:var(--mono-font);margin-bottom:8px}
+.wq-preview-sec-title{font-family:var(--display-font);font-size:20px;font-weight:700;color:var(--text-primary);margin-bottom:12px}
+.wq-preview-block{margin-bottom:12px}
+.wq-preview-text{font-family:var(--body-font);font-size:14px;color:var(--text-secondary);line-height:1.8}
+.wq-preview-iframe{width:100%;height:240px;border:none;border-radius:10px;overflow:hidden;display:block}
+.wq-preview-img{width:100%;border-radius:10px;max-height:280px;object-fit:cover;display:block}
+
+/* ═══════════════════════════════════════════
+   UTILIDADES
+═══════════════════════════════════════════ */
+.hidden{display:none!important}
+.flex{display:flex}
+.items-center{align-items:center}
+.gap-8{gap:8px}
+.mt-4{margin-top:16px}
+.text-accent{color:var(--accent)}
+.empty-state{text-align:center;padding:40px 20px;color:var(--text-muted)}
+.empty-state-icon{font-size:36px;margin-bottom:12px}
+.empty-state-title{font-size:16px;font-weight:600;color:var(--text-secondary);margin-bottom:6px}
+.empty-state-sub{font-size:13px}
+
+/* Toast */
+.toast{position:fixed;bottom:24px;left:50%;transform:translateX(-50%);background:var(--surface-1);border:1px solid var(--border);border-radius:10px;padding:10px 20px;font-size:13px;font-weight:600;color:var(--text-primary);z-index:9999;opacity:0;transition:opacity .3s;pointer-events:none;white-space:nowrap}
+.toast.show{opacity:1}
+.toast.success{border-color:var(--accent);color:var(--accent)}
+.toast.error{border-color:#ff5555;color:#ff5555}
+
+/* Spinner */
+.spinner{width:18px;height:18px;border:2px solid var(--border);border-top-color:var(--accent);border-radius:50%;animation:spin .7s linear infinite;display:inline-block}
+@keyframes spin{to{transform:rotate(360deg)}}
+</style>
+</head>
+<body>
+
+<!-- ══════════ LOADING ══════════ -->
+<div id="loading-screen">
+  <div class="loading-logo">BLACK <span>IA</span></div>
+  <div style="font-size:11px;color:#333;font-family:'Share Tech Mono',monospace;letter-spacing:.1em;margin-bottom:16px">WEBQUEST</div>
+  <div class="loading-bar"><div class="loading-bar-inner"></div></div>
+  <div class="loading-sub" id="loading-msg">Verificando sesión...</div>
+</div>
+
+<!-- ══════════ TEACHER LOGIN ══════════ -->
+<div id="teacher-login">
+  <div class="tl-card">
+    <div class="tl-logo">Black IA · WebQuest</div>
+    <div class="tl-title">Panel de Profesor</div>
+    <div class="tl-sub">Acceso exclusivo para docentes</div>
+    <div class="tl-field">
+      <label>Correo institucional</label>
+      <input type="email" id="teacher-email" placeholder="nombre@master.blackai.com">
+    </div>
+    <div class="tl-field">
+      <label>Contraseña</label>
+      <input type="password" id="teacher-pass" placeholder="••••••••">
+    </div>
+    <button class="tl-btn" onclick="loginTeacher()">Entrar al panel</button>
+    <div class="tl-err" id="tl-err"></div>
+    <div class="tl-back" onclick="goToPedagogia()">← Volver a Pedagogía</div>
+  </div>
+</div>
+
+<!-- ══════════ APP ══════════ -->
+<div id="app">
+
+  <!-- NAVBAR -->
+  <nav id="navbar">
+    <div class="nav-brand">
+      <span class="nav-brand-dot"></span>
+      WebQuest · <span id="nav-subject" style="opacity:.6;font-weight:400">Black IA</span>
+    </div>
+    <div class="nav-right">
+      <div class="nav-user" id="nav-user-name"></div>
+      <button class="nav-theme-btn" onclick="openThemeModal()" id="theme-btn" style="display:none">
+        🎨 Cambiar tema
+      </button>
+      <button class="nav-btn" onclick="showPreview()" id="preview-btn" style="display:none">Vista previa</button>
+      <button class="nav-btn ghost" onclick="logout()">Salir</button>
+    </div>
+  </nav>
+
+  <!-- VISTA: DASHBOARD ALUMNO -->
+  <div id="view-dashboard" class="view">
+    <div class="dash-header">
+      <div class="dash-greeting">BIENVENIDA</div>
+      <div class="dash-title" id="dash-name">Cargando...</div>
+      <div class="dash-sub">Aquí están tus WebQuests por parcial. Crea, edita y publica tu trabajo.</div>
+    </div>
+    <div class="parciales-grid" id="parciales-grid">
+      <!-- generado por JS -->
+    </div>
+  </div>
+
+  <!-- VISTA: EDITOR -->
+  <div id="view-editor" class="view">
+    <div class="editor-layout">
+      <!-- Sidebar secciones -->
+      <div class="editor-sidebar">
+        <div style="padding:16px 18px 12px">
+          <button onclick="backToDash()" style="background:none;border:none;font-size:12px;color:var(--text-muted);cursor:pointer;display:flex;align-items:center;gap:6px;padding:0">
+            ← Dashboard
+          </button>
+        </div>
+        <div style="padding:0 18px 12px">
+          <div style="font-size:13px;font-weight:700;color:var(--text-primary)" id="editor-parcial-title">Parcial 1</div>
+          <div style="font-size:11px;color:var(--text-muted);margin-top:2px" id="editor-theme-name">Sin tema</div>
+        </div>
+        <div class="sidebar-section-title">Secciones</div>
+        <div id="sections-nav">
+          <!-- generado por JS -->
+        </div>
+      </div>
+      <!-- Main editor -->
+      <div class="editor-main" id="editor-main">
+        <!-- generado por JS -->
+      </div>
+    </div>
+  </div>
+
+  <!-- VISTA: PANEL PROFESOR -->
+  <div id="view-teacher" class="view">
+    <div class="teacher-panel">
+      <div class="tp-header">
+        <div class="tp-title">Panel de Profesor · WebQuest</div>
+        <div class="tp-sub">Revisa y califica las WebQuests de tus alumnas</div>
+      </div>
+      <div class="tp-tabs">
+        <div class="tp-tab active" onclick="teacherTab('parcial1',this)">Parcial 1</div>
+        <div class="tp-tab" onclick="teacherTab('parcial2',this)">Parcial 2</div>
+        <div class="tp-tab" onclick="teacherTab('parcialFinal',this)">Final</div>
+      </div>
+      <div id="teacher-table-wrap">
+        <div class="empty-state">
+          <div class="spinner"></div>
+          <div style="margin-top:12px">Cargando alumnos...</div>
+        </div>
+      </div>
+    </div>
+  </div>
+
+  <!-- VISTA: PREVIEW -->
+  <div id="view-preview" class="view">
+    <div class="preview-topbar">
+      <button class="nav-btn ghost" onclick="closePreview()">← Volver al editor</button>
+      <span style="font-size:12px;color:var(--text-muted);font-family:'Share Tech Mono',monospace">Vista previa del WebQuest</span>
+    </div>
+    <div class="preview-content">
+      <div class="wq-preview-wrap" id="preview-wrap"></div>
+    </div>
+  </div>
+
+</div><!-- /app -->
+
+<!-- AUTOSAVE BAR -->
+<div class="autosave-bar" id="autosave-bar" style="display:none">
+  <span class="autosave-dot" id="autosave-dot"></span>
+  <span id="autosave-text">Guardado</span>
+</div>
+
+<!-- MODAL SELECTOR DE TEMA -->
+<div class="modal-overlay" id="theme-modal">
+  <div class="modal">
+    <div class="modal-title">Elige el tema de tu WebQuest</div>
+    <div class="modal-sub">El tema define el look completo: colores, tipografía, botones y fondo. Puedes cambiarlo en cualquier momento.</div>
+    <div class="ts-grid" id="theme-grid">
+      <!-- generado por JS -->
+    </div>
+    <div style="margin-top:20px;text-align:right">
+      <button class="nav-btn ghost" onclick="closeThemeModal()">Cancelar</button>
+    </div>
+  </div>
+</div>
+
+<!-- MODAL VISTA WEBQUEST ALUMNA (desde profesor) -->
+<div class="modal-overlay" id="wq-view-modal">
+  <div class="modal" style="max-width:780px">
+    <div style="display:flex;align-items:center;justify-content:space-between;margin-bottom:20px">
+      <div style="font-family:'Space Grotesk',sans-serif;font-size:18px;font-weight:700;color:var(--text-primary)" id="wq-view-title">WebQuest</div>
+      <button class="nav-btn ghost" onclick="closeWqModal()">Cerrar</button>
+    </div>
+    <div id="wq-view-content"></div>
+  </div>
+</div>
+
+<!-- TOAST -->
+<div class="toast" id="toast"></div>
+
+<!-- ══════════ SCRIPTS ══════════ -->
+<script>
+// ═══════════════════════════════════════════
+//  FIREBASE CONFIG
+// ═══════════════════════════════════════════
+const firebaseConfig = {
+  apiKey: "AIzaSyD1rqMAfWFpvPQJQTJYP3-Jj1O9oJKBF-c",
+  authDomain: "foro-ee8a5.firebaseapp.com",
+  databaseURL: "https://foro-ee8a5-default-rtdb.firebaseio.com",
+  projectId: "foro-ee8a5",
+  storageBucket: "foro-ee8a5.firebasestorage.app",
+  messagingSenderId: "548605948271",
+  appId: "1:548605948271:web:6d903b2432429d7a04b89a"
+};
+firebase.initializeApp(firebaseConfig);
+const auth  = firebase.auth();
+const db    = firebase.database();
+
+// ═══════════════════════════════════════════
+//  CONSTANTES
+// ═══════════════════════════════════════════
+const WORKER_URL = 'https://milestones-auth.ulisesmf-py.workers.dev';
+const PEDAGOGY_URL = 'https://pedagogia-ag5.pages.dev/';
+const TEACHER_DOMAIN = '@master.blackai.com';
+
+const SECTIONS = [
+  { id:'intro',      icon:'🌐', name:'Introducción',  desc:'Contextualiza el tema. ¿Qué van a explorar? ¿Por qué es importante?' },
+  { id:'tarea',      icon:'🎯', name:'Tarea',          desc:'¿Qué debe producir o resolver el alumno al final de esta WebQuest?' },
+  { id:'proceso',    icon:'🔄', name:'Proceso',        desc:'Pasos concretos que debe seguir el alumno para completar la tarea.' },
+  { id:'recursos',   icon:'📚', name:'Recursos',       desc:'Links, videos de YouTube, actividades de Educaplay y materiales de apoyo.' },
+  { id:'evaluacion', icon:'📊', name:'Evaluación',     desc:'Criterios y rúbrica con la que se evaluará el trabajo del alumno.' },
+  { id:'conclusion', icon:'💡', name:'Conclusión',     desc:'Reflexión final. ¿Qué aprendiste? ¿Qué puedes aplicar en tu vida?' }
+];
+
+const THEMES = [
+  { id:'cosmos',     name:'Cosmos Profundo',   areas:'Astronomía · Historia · Tecnología',
+    thumb:'thumb-cosmos',   accent:'#c9a84c' },
+  { id:'selva',      name:'Selva Digital',      areas:'Biología · Ecología · Geografía',
+    thumb:'thumb-selva',    accent:'#55cc55' },
+  { id:'neon',       name:'Neón Creativo',      areas:'Arte · Música · Literatura',
+    thumb:'thumb-neon',     accent:'#dd44ff' },
+  { id:'pergamino',  name:'Pergamino Antiguo',  areas:'Historia · Filosofía · Humanidades',
+    thumb:'thumb-pergamino',accent:'#c06000' },
+  { id:'blueprint',  name:'Blueprint Técnico',  areas:'Matemáticas · Física · Informática',
+    thumb:'thumb-blueprint',accent:'#2255cc' },
+  { id:'clinica',    name:'Clínica Vital',       areas:'Salud · Psicología · Nutrición',
+    thumb:'thumb-clinica',  accent:'#cc2222' },
+  { id:'estudio',    name:'Estudio Oscuro',      areas:'Medios · Redes Sociales · Comunicación',
+    thumb:'thumb-estudio',  accent:'#ffffff' },
+  { id:'mapa',       name:'Mapa Vivo',           areas:'Geografía · Turismo · Economía',
+    thumb:'thumb-mapa',     accent:'#006644' }
+];
+
+const PARCIALES = [
+  { id:'parcial1',     name:'Primer Parcial',    short:'P1' },
+  { id:'parcial2',     name:'Segundo Parcial',   short:'P2' },
+  { id:'parcialFinal', name:'Parcial Final',     short:'PF' }
+];
+
+// ═══════════════════════════════════════════
+//  ESTADO GLOBAL
+// ═══════════════════════════════════════════
+let currentUser   = null;
+let isTeacher     = false;
+let userData      = {};      // datos de webquest por parcial
+let currentParcial= null;    // parcial en edición
+let autosaveTimer = null;
+let currentTheme  = '';      // tema activo en body
+let currentTeacherTab = 'parcial1';
+
+// ═══════════════════════════════════════════
+//  INIT — AUTH
+// ═══════════════════════════════════════════
+window.addEventListener('DOMContentLoaded', async () => {
+  setLoadingMsg('Verificando sesión...');
+  buildThemeModal();
+
+  // ¿Viene con token desde Pedagogía?
+  const params = new URLSearchParams(location.search);
+  const token  = params.get('token');
+
+  if (token) {
+    setLoadingMsg('Iniciando sesión...');
+    try {
+      // Cambiar URL para limpiar el token
+      history.replaceState({}, '', location.pathname);
+      await auth.signInWithCustomToken(token);
+    } catch(e) {
+      // Si falla el custom token, intentar con ID token directamente
+      try {
+        await auth.signInWithCustomToken(token);
+      } catch(e2) {
+        setLoadingMsg('Error de sesión. Redirigiendo...');
+        setTimeout(goToPedagogia, 2000);
+        return;
+      }
+    }
+  }
+
+  auth.onAuthStateChanged(async user => {
+    if (user) {
+      currentUser = user;
+      const email = user.email || '';
+      isTeacher = email.endsWith(TEACHER_DOMAIN);
+
+      if (isTeacher) {
+        setLoadingMsg('Cargando panel de profesor...');
+        await initTeacher();
+      } else {
+        setLoadingMsg('Cargando tus WebQuests...');
+        await initStudent();
+      }
+    } else {
+      // Sin sesión — si parece ser profesor, mostrar login
+      // Si no, redirigir a Pedagogía
+      const isDirectAccess = !token;
+      if (isDirectAccess) {
+        hideLoading();
+        showTeacherLogin();
+      } else {
+        setLoadingMsg('Sin sesión. Redirigiendo...');
+        setTimeout(goToPedagogia, 1500);
+      }
+    }
+  });
+});
+
+// ═══════════════════════════════════════════
+//  INIT ALUMNA
+// ═══════════════════════════════════════════
+async function initStudent() {
+  try {
+    const snap = await db.ref(`/webquest/${currentUser.uid}`).once('value');
+    userData = snap.val() || {};
+  } catch(e) { userData = {}; }
+
+  // Obtener nombre del alumno
+  let name = currentUser.displayName || currentUser.email.split('@')[0];
+  try {
+    const snap = await db.ref(`/students/${currentUser.uid}/nombre`).once('value');
+    if (snap.val()) name = snap.val();
+  } catch(e) {}
+
+  document.getElementById('dash-name').textContent = `Hola, ${name} 🌸`;
+  document.getElementById('nav-user-name').textContent = name;
+
+  renderDashboard();
+  showView('view-dashboard');
+  hideLoading();
+  showApp();
+}
+
+// ═══════════════════════════════════════════
+//  INIT PROFESOR
+// ═══════════════════════════════════════════
+async function initTeacher() {
+  const name = currentUser.displayName || 'Profesor';
+  document.getElementById('nav-user-name').textContent = name;
+  await loadTeacherData('parcial1');
+  showView('view-teacher');
+  hideLoading();
+  showApp();
+}
+
+// ═══════════════════════════════════════════
+//  DASHBOARD ALUMNA
+// ═══════════════════════════════════════════
+function renderDashboard() {
+  const grid = document.getElementById('parciales-grid');
+  grid.innerHTML = '';
+
+  PARCIALES.forEach(p => {
+    const data = (userData[p.id]) || {};
+    const hasContent = data.blocks && Object.keys(data.blocks).length > 0;
+    const isPublished = data.published;
+    const score = data.score || null;
+    const themeName = data.theme ? THEMES.find(t=>t.id===data.theme)?.name : null;
+
+    let statusClass = 'empty', statusText = 'Sin comenzar';
+    if (isPublished){ statusClass='done'; statusText='Publicado'; }
+    else if (hasContent){ statusClass='draft'; statusText='En progreso'; }
+
+    const card = document.createElement('div');
+    card.className = 'parcial-card';
+    card.onclick = () => openEditor(p.id);
+    card.innerHTML = `
+      <div class="parcial-num">${p.short}</div>
+      <div class="parcial-name">${p.name}</div>
+      ${score ? `<div class="parcial-score">${score}</div>` : ''}
+      <div class="parcial-status">
+        <span class="status-dot ${statusClass}"></span>${statusText}
+        ${themeName ? ` · ${themeName}` : ''}
+      </div>
+      <div class="parcial-action">${hasContent ? 'Continuar →' : 'Comenzar →'}</div>
+    `;
+    grid.appendChild(card);
+  });
+}
+
+// ═══════════════════════════════════════════
+//  EDITOR
+// ═══════════════════════════════════════════
+function openEditor(parcialId) {
+  currentParcial = parcialId;
+  const pData = userData[parcialId] || {};
+  const parcialInfo = PARCIALES.find(p => p.id === parcialId);
+
+  // Si no tiene tema, abrir selector primero
+  if (!pData.theme) {
+    document.getElementById('editor-parcial-title').textContent = parcialInfo.name;
+    document.getElementById('editor-theme-name').textContent = 'Sin tema — elige uno';
+    buildEditorSections(pData);
+    showView('view-editor');
+    document.getElementById('theme-btn').style.display = '';
+    document.getElementById('preview-btn').style.display = '';
+    openThemeModal();
+  } else {
+    applyTheme(pData.theme);
+    document.getElementById('editor-parcial-title').textContent = parcialInfo.name;
+    document.getElementById('editor-theme-name').textContent = THEMES.find(t=>t.id===pData.theme)?.name || '';
+    buildEditorSections(pData);
+    showView('view-editor');
+    document.getElementById('theme-btn').style.display = '';
+    document.getElementById('preview-btn').style.display = '';
+  }
+  startAutosave();
+}
+
+function buildEditorSections(pData) {
+  const nav = document.getElementById('sections-nav');
+  const main = document.getElementById('editor-main');
+  nav.innerHTML = '';
+  main.innerHTML = '';
+
+  SECTIONS.forEach((sec, i) => {
+    const blocks = (pData.blocks && pData.blocks[sec.id]) ? pData.blocks[sec.id] : [];
+    const hasBlocks = blocks.length > 0;
+
+    // Nav item
+    const navItem = document.createElement('div');
+    navItem.className = 'sidebar-item' + (i===0?' active':'');
+    navItem.id = `nav-${sec.id}`;
+    navItem.onclick = () => scrollToSection(sec.id);
+    navItem.innerHTML = `
+      <span class="sidebar-icon">${sec.icon}</span>
+      <span class="sidebar-label">${sec.name}</span>
+      ${hasBlocks ? '<span class="sidebar-check">✓</span>' : ''}
+    `;
+    nav.appendChild(navItem);
+
+    // Section editor
+    const secEl = document.createElement('div');
+    secEl.className = 'section-editor';
+    secEl.id = `sec-${sec.id}`;
+    secEl.style.marginBottom = '48px';
+    secEl.innerHTML = `
+      <div class="se-title">${sec.icon} ${sec.name}</div>
+      <div class="se-desc">${sec.desc}</div>
+      <div class="se-divider"></div>
+      <div class="blocks-list" id="blocks-${sec.id}"></div>
+      <div class="add-block-row">
+        <button class="add-block-btn" onclick="addBlock('${sec.id}','text')">✏️ Texto</button>
+        <button class="add-block-btn" onclick="addBlock('${sec.id}','image')">🖼 Imagen</button>
+        <button class="add-block-btn" onclick="addBlock('${sec.id}','youtube')">▶️ YouTube</button>
+        <button class="add-block-btn" onclick="addBlock('${sec.id}','educaplay')">🎮 Educaplay</button>
+      </div>
+    `;
+    main.appendChild(secEl);
+
+    // Renderizar bloques existentes
+    blocks.forEach((b, bi) => renderBlock(sec.id, b, bi));
+  });
+
+  // Scroll observer para sidebar
+  setupScrollObserver();
+}
+
+function scrollToSection(secId) {
+  const el = document.getElementById(`sec-${secId}`);
+  if (el) el.scrollIntoView({ behavior:'smooth', block:'start' });
+}
+
+function setupScrollObserver() {
+  const mainEl = document.getElementById('editor-main');
+  const observer = new IntersectionObserver(entries => {
+    entries.forEach(e => {
+      if (e.isIntersecting) {
+        const secId = e.target.id.replace('sec-','');
+        document.querySelectorAll('.sidebar-item').forEach(el => el.classList.remove('active'));
+        const navEl = document.getElementById(`nav-${secId}`);
+        if (navEl) navEl.classList.add('active');
+      }
+    });
+  }, { root: mainEl, threshold: 0.3 });
+
+  SECTIONS.forEach(s => {
+    const el = document.getElementById(`sec-${s.id}`);
+    if (el) observer.observe(el);
+  });
+}
+
+// ═══════════════════════════════════════════
+//  BLOQUES DE CONTENIDO
+// ═══════════════════════════════════════════
+function addBlock(secId, type) {
+  const block = { type, content: '' };
+  if (!userData[currentParcial]) userData[currentParcial] = {};
+  if (!userData[currentParcial].blocks) userData[currentParcial].blocks = {};
+  if (!userData[currentParcial].blocks[secId]) userData[currentParcial].blocks[secId] = [];
+  const idx = userData[currentParcial].blocks[secId].length;
+  userData[currentParcial].blocks[secId].push(block);
+  renderBlock(secId, block, idx);
+  triggerAutosave();
+}
+
+function renderBlock(secId, block, idx) {
+  const container = document.getElementById(`blocks-${secId}`);
+  if (!container) return;
+  const blockEl = document.createElement('div');
+  blockEl.className = 'block-item';
+  blockEl.id = `block-${secId}-${idx}`;
+
+  const typeLabels = { text:'Texto', image:'Imagen', youtube:'YouTube', educaplay:'Educaplay' };
+  const typeLabel  = typeLabels[block.type] || block.type;
+
+  let bodyHtml = '';
+
+  if (block.type === 'text') {
+    bodyHtml = `
+      <div class="text-toolbar">
+        <button class="fmt-btn" onclick="fmt('bold')"><b>N</b></button>
+        <button class="fmt-btn" onclick="fmt('italic')"><i>K</i></button>
+        <button class="fmt-btn" onclick="fmt('underline')"><u>S</u></button>
+      </div>
+      <div contenteditable="true" class="block-textarea"
+        style="min-height:80px;padding:10px;border:1px solid var(--border);border-radius:8px;line-height:1.7;color:var(--text-primary)"
+        oninput="onBlockInput('${secId}',${idx},this.innerHTML)"
+        data-placeholder="Escribe el contenido de esta sección..."
+      >${block.content || ''}</div>
+    `;
+  } else if (block.type === 'image') {
+    const hasUrl = block.content && block.content.trim();
+    bodyHtml = `
+      <input class="block-url-input" type="url" placeholder="Pega la URL de la imagen (https://...)"
+        value="${block.content || ''}"
+        oninput="onBlockInput('${secId}',${idx},this.value);updateImagePreview('${secId}',${idx},this.value)">
+      <div class="url-hint">Solo URLs externas (no se permite subir archivos directamente)</div>
+      <div class="block-preview" id="img-preview-${secId}-${idx}" style="${hasUrl?'':'display:none'}">
+        <img src="${block.content || ''}" alt="Vista previa" onerror="this.parentElement.style.display='none'">
+      </div>
+    `;
+  } else if (block.type === 'youtube') {
+    const embedUrl = youtubeToEmbed(block.content);
+    bodyHtml = `
+      <input class="block-url-input" type="url" placeholder="Pega el link de YouTube (https://youtube.com/watch?v=...)"
+        value="${block.content || ''}"
+        oninput="onBlockInput('${secId}',${idx},this.value);updateYtPreview('${secId}',${idx},this.value)">
+      <div class="block-preview" id="yt-preview-${secId}-${idx}" style="${embedUrl?'':'display:none'}">
+        <iframe src="${embedUrl || ''}" allowfullscreen></iframe>
+      </div>
+    `;
+  } else if (block.type === 'educaplay') {
+    bodyHtml = `
+      <input class="block-url-input" type="url" placeholder="Pega la URL de Educaplay o el código embed"
+        value="${block.content || ''}"
+        oninput="onBlockInput('${secId}',${idx},this.value);updateEdPlay('${secId}',${idx},this.value)">
+      <div class="url-hint">Ejemplo: https://es.educaplay.com/juego/XXXXXX-nombre.html</div>
+      <div class="block-preview" id="ep-preview-${secId}-${idx}" style="${block.content?'':'display:none'}">
+        <iframe src="${block.content || ''}" allowfullscreen></iframe>
+      </div>
+    `;
+  }
+
+  blockEl.innerHTML = `
+    <div class="block-header">
+      <span class="block-type-badge">${typeLabel}</span>
+      <button class="block-del" onclick="deleteBlock('${secId}',${idx})" title="Eliminar bloque">×</button>
+    </div>
+    <div class="block-body">${bodyHtml}</div>
+  `;
+  container.appendChild(blockEl);
+}
+
+function onBlockInput(secId, idx, value) {
+  if (!userData[currentParcial]?.blocks?.[secId]) return;
+  userData[currentParcial].blocks[secId][idx].content = value;
+  triggerAutosave();
+}
+
+function deleteBlock(secId, idx) {
+  if (!userData[currentParcial]?.blocks?.[secId]) return;
+  userData[currentParcial].blocks[secId].splice(idx,1);
+  // Re-render sección
+  const data = userData[currentParcial] || {};
+  buildEditorSections(data);
+  triggerAutosave();
+}
+
+function updateImagePreview(secId, idx, url) {
+  const prev = document.getElementById(`img-preview-${secId}-${idx}`);
+  if (!prev) return;
+  if (url) {
+    prev.style.display = '';
+    prev.querySelector('img').src = url;
+  } else {
+    prev.style.display = 'none';
+  }
+}
+
+function updateYtPreview(secId, idx, url) {
+  const prev = document.getElementById(`yt-preview-${secId}-${idx}`);
+  if (!prev) return;
+  const embed = youtubeToEmbed(url);
+  if (embed) {
+    prev.style.display = '';
+    prev.querySelector('iframe').src = embed;
+  } else {
+    prev.style.display = 'none';
+  }
+}
+
+function updateEdPlay(secId, idx, url) {
+  const prev = document.getElementById(`ep-preview-${secId}-${idx}`);
+  if (!prev) return;
+  if (url) {
+    prev.style.display = '';
+    prev.querySelector('iframe').src = url;
+  } else {
+    prev.style.display = 'none';
+  }
+}
+
+function youtubeToEmbed(url) {
+  if (!url) return null;
+  const match = url.match(/(?:youtu\.be\/|youtube\.com\/(?:watch\?v=|embed\/|shorts\/))([A-Za-z0-9_-]{11})/);
+  return match ? `https://www.youtube.com/embed/${match[1]}` : null;
+}
+
+function fmt(cmd) {
+  document.execCommand(cmd, false, null);
+}
+
+// ═══════════════════════════════════════════
+//  TEMAS
+// ═══════════════════════════════════════════
+function applyTheme(themeId) {
+  document.body.className = themeId ? `theme-${themeId}` : '';
+  currentTheme = themeId;
+}
+
+function buildThemeModal() {
+  const grid = document.getElementById('theme-grid');
+  grid.innerHTML = '';
+  THEMES.forEach(t => {
+    const card = document.createElement('div');
+    card.className = 'ts-card' + (currentTheme === t.id ? ' active-theme' : '');
+    card.id = `ts-card-${t.id}`;
+    card.innerHTML = `
+      <div class="ts-thumb ${t.thumb}"></div>
+      <div class="ts-info">
+        <div class="ts-name">${t.name}</div>
+        <div class="ts-areas">${t.areas}</div>
+      </div>
+    `;
+    card.onclick = () => selectTheme(t.id);
+    grid.appendChild(card);
+  });
+}
+
+function selectTheme(themeId) {
+  applyTheme(themeId);
+  if (currentParcial) {
+    if (!userData[currentParcial]) userData[currentParcial] = {};
+    userData[currentParcial].theme = themeId;
+    document.getElementById('editor-theme-name').textContent = THEMES.find(t=>t.id===themeId)?.name || '';
+    buildThemeModal(); // refresh active state
+    triggerAutosave();
+  }
+  closeThemeModal();
+  showToast('Tema aplicado: ' + THEMES.find(t=>t.id===themeId)?.name, 'success');
+}
+
+function openThemeModal() {
+  buildThemeModal();
+  document.getElementById('theme-modal').classList.add('open');
+}
+function closeThemeModal() {
+  document.getElementById('theme-modal').classList.remove('open');
+}
+
+// ═══════════════════════════════════════════
+//  AUTOSAVE
+// ═══════════════════════════════════════════
+function startAutosave() {
+  document.getElementById('autosave-bar').style.display = '';
+  setAutosaveStatus('saved');
+  // Autosave cada 30 segundos
+  if (autosaveTimer) clearInterval(autosaveTimer);
+  autosaveTimer = setInterval(saveCurrentParcial, 30000);
+}
+
+function triggerAutosave() {
+  setAutosaveStatus('saving');
+  clearTimeout(window._saveDebounce);
+  window._saveDebounce = setTimeout(saveCurrentParcial, 1500);
+}
+
+async function saveCurrentParcial() {
+  if (!currentUser || !currentParcial) return;
+  setAutosaveStatus('saving');
+  try {
+    const dataToSave = userData[currentParcial] || {};
+    dataToSave.updatedAt = Date.now();
+    await db.ref(`/webquest/${currentUser.uid}/${currentParcial}`).set(dataToSave);
+    setAutosaveStatus('saved');
+    // Actualizar sidebar checkmarks
+    SECTIONS.forEach(s => {
+      const navEl = document.getElementById(`nav-${s.id}`);
+      if (!navEl) return;
+      const blocks = dataToSave.blocks?.[s.id] || [];
+      const check = navEl.querySelector('.sidebar-check');
+      if (blocks.length > 0 && !check) {
+        const span = document.createElement('span');
+        span.className = 'sidebar-check';
+        span.textContent = '✓';
+        navEl.appendChild(span);
+      }
+    });
+  } catch(e) {
+    setAutosaveStatus('error');
+  }
+}
+
+function setAutosaveStatus(status) {
+  const dot = document.getElementById('autosave-dot');
+  const txt = document.getElementById('autosave-text');
+  if (status === 'saving') {
+    dot.className = 'autosave-dot saving';
+    txt.textContent = 'Guardando...';
+  } else if (status === 'saved') {
+    dot.className = 'autosave-dot';
+    txt.textContent = 'Guardado automáticamente';
+  } else {
+    dot.className = 'autosave-dot';
+    dot.style.background = '#ff5555';
+    txt.textContent = 'Error al guardar';
+  }
+}
+
+// ═══════════════════════════════════════════
+//  VISTA PREVIA
+// ═══════════════════════════════════════════
+function showPreview() {
+  if (!currentParcial) return;
+  const data = userData[currentParcial] || {};
+  const pInfo = PARCIALES.find(p=>p.id===currentParcial);
+  const themeName = THEMES.find(t=>t.id===data.theme)?.name || 'Sin tema';
+  const wrap = document.getElementById('preview-wrap');
+  let html = `
+    <div class="wq-preview-header">
+      <div class="wq-preview-tag">WebQuest · ${pInfo.name}</div>
+      <div class="wq-preview-title">${data.title || 'Mi WebQuest'}</div>
+      <div class="wq-preview-meta">Tema: ${themeName}</div>
+    </div>
+    <div class="wq-preview-sections">
+  `;
+  SECTIONS.forEach((sec, i) => {
+    const blocks = data.blocks?.[sec.id] || [];
+    html += `
+      <div class="wq-preview-section">
+        <div class="wq-preview-sec-label">${String(i+1).padStart(2,'0')} / ${sec.id.toUpperCase()}</div>
+        <div class="wq-preview-sec-title">${sec.icon} ${sec.name}</div>
+    `;
+    if (blocks.length === 0) {
+      html += `<div style="font-size:13px;color:var(--text-muted);font-style:italic">Sin contenido aún</div>`;
+    } else {
+      blocks.forEach(b => {
+        if (b.type === 'text') {
+          html += `<div class="wq-preview-block"><div class="wq-preview-text">${b.content}</div></div>`;
+        } else if (b.type === 'image' && b.content) {
+          html += `<div class="wq-preview-block"><img src="${b.content}" class="wq-preview-img" alt="Imagen"></div>`;
+        } else if (b.type === 'youtube' && b.content) {
+          const embed = youtubeToEmbed(b.content);
+          if (embed) html += `<div class="wq-preview-block"><iframe src="${embed}" class="wq-preview-iframe" allowfullscreen></iframe></div>`;
+        } else if (b.type === 'educaplay' && b.content) {
+          html += `<div class="wq-preview-block"><iframe src="${b.content}" class="wq-preview-iframe" allowfullscreen></iframe></div>`;
+        }
+      });
+    }
+    html += `</div>`;
+  });
+  html += '</div>';
+  wrap.innerHTML = html;
+  showView('view-preview');
+}
+
+function closePreview() {
+  showView('view-editor');
+}
+
+// ═══════════════════════════════════════════
+//  PANEL PROFESOR
+// ═══════════════════════════════════════════
+async function loadTeacherData(parcialId) {
+  currentTeacherTab = parcialId;
+  const wrap = document.getElementById('teacher-table-wrap');
+  wrap.innerHTML = '<div class="empty-state"><div class="spinner"></div><div style="margin-top:12px">Cargando...</div></div>';
+
+  try {
+    // Cargar todos los alumnos
+    const studentsSnap = await db.ref('/students').once('value');
+    const students = studentsSnap.val() || {};
+
+    // Cargar WebQuests del parcial para cada alumno
+    const rows = [];
+    for (const uid in students) {
+      const wqSnap = await db.ref(`/webquest/${uid}/${parcialId}`).once('value');
+      const wq = wqSnap.val();
+      const gradeSnap = await db.ref(`/grades/${uid}/webquest/${parcialId}`).once('value');
+      const grade = gradeSnap.val();
+      rows.push({
+        uid,
+        nombre: students[uid].nombre || uid,
+        matricula: students[uid].matricula || '—',
+        wq,
+        score: grade?.score ?? '',
+        feedback: grade?.feedback ?? ''
+      });
+    }
+
+    if (rows.length === 0) {
+      wrap.innerHTML = '<div class="empty-state"><div class="empty-state-icon">👩‍🎓</div><div class="empty-state-title">Sin alumnos registrados</div></div>';
+      return;
+    }
+
+    // Renderizar tabla
+    const pName = PARCIALES.find(p=>p.id===parcialId)?.name || parcialId;
+    let tableHtml = `
+      <table class="students-table">
+        <thead>
+          <tr>
+            <th>Alumna</th>
+            <th>Matrícula</th>
+            <th>Estado</th>
+            <th>Tema</th>
+            <th>Calificación</th>
+            <th>Acciones</th>
+          </tr>
+        </thead>
+        <tbody>
+    `;
+    rows.forEach(r => {
+      const hasWq = r.wq && r.wq.blocks;
+      const theme = r.wq?.theme ? THEMES.find(t=>t.id===r.wq.theme)?.name : '—';
+      const statusDot = hasWq ? (r.wq.published ? '#44cc88' : '#f0a840') : '#555';
+      const statusTxt = hasWq ? (r.wq.published ? 'Publicado' : 'En progreso') : 'Sin iniciar';
+      tableHtml += `
+        <tr>
+          <td style="font-weight:600">${r.nombre}</td>
+          <td style="font-family:'Share Tech Mono',monospace;font-size:12px">${r.matricula}</td>
+          <td><span style="display:inline-flex;align-items:center;gap:6px"><span style="width:7px;height:7px;border-radius:50%;background:${statusDot};flex-shrink:0"></span>${statusTxt}</span></td>
+          <td style="font-size:12px;color:var(--text-muted)">${theme}</td>
+          <td>
+            <input type="number" class="grade-input" min="0" max="100" value="${r.score}"
+              id="grade-${r.uid}" placeholder="0-100">
+          </td>
+          <td style="display:flex;gap:6px;align-items:center;flex-wrap:wrap">
+            <button class="save-grade-btn" onclick="saveGrade('${r.uid}','${parcialId}')">Guardar</button>
+            ${hasWq ? `<button class="view-wq-btn" onclick="viewStudentWQ('${r.uid}','${r.nombre}','${parcialId}')">Ver WQ</button>` : ''}
+          </td>
+        </tr>
+      `;
+    });
+    tableHtml += '</tbody></table>';
+    wrap.innerHTML = tableHtml;
+
+  } catch(e) {
+    wrap.innerHTML = `<div class="empty-state"><div class="empty-state-title">Error cargando datos</div><div class="empty-state-sub">${e.message}</div></div>`;
+  }
+}
+
+async function saveGrade(uid, parcialId) {
+  const input = document.getElementById(`grade-${uid}`);
+  const score = parseInt(input.value);
+  if (isNaN(score) || score < 0 || score > 100) {
+    showToast('Ingresa una calificación entre 0 y 100', 'error'); return;
+  }
+  try {
+    await db.ref(`/grades/${uid}/webquest/${parcialId}`).set({
+      score,
+      gradedAt: Date.now(),
+      gradedBy: currentUser.uid
+    });
+    // También guardar en el nodo del webquest del alumno
+    await db.ref(`/webquest/${uid}/${parcialId}/score`).set(score);
+    showToast('Calificación guardada ✓', 'success');
+  } catch(e) {
+    showToast('Error al guardar', 'error');
+  }
+}
+
+async function viewStudentWQ(uid, nombre, parcialId) {
+  const snap = await db.ref(`/webquest/${uid}/${parcialId}`).once('value');
+  const data = snap.val();
+  if (!data) { showToast('Sin WebQuest para este parcial', 'error'); return; }
+
+  document.getElementById('wq-view-title').textContent = `WebQuest de ${nombre}`;
+  const themeName = THEMES.find(t=>t.id===data.theme)?.name || 'Sin tema';
+  let html = `<div style="font-size:12px;color:var(--text-muted);margin-bottom:20px;font-family:'Share Tech Mono',monospace">Tema: ${themeName}</div>`;
+
+  SECTIONS.forEach((sec, i) => {
+    const blocks = data.blocks?.[sec.id] || [];
+    html += `
+      <div style="margin-bottom:20px;border-bottom:1px solid var(--border);padding-bottom:16px">
+        <div style="font-size:11px;font-weight:700;color:var(--accent);letter-spacing:.08em;text-transform:uppercase;margin-bottom:6px">${sec.icon} ${sec.name}</div>
+    `;
+    if (blocks.length === 0) {
+      html += `<div style="font-size:12px;color:var(--text-muted);font-style:italic">Sin contenido</div>`;
+    } else {
+      blocks.forEach(b => {
+        if (b.type === 'text') html += `<div style="font-size:13px;color:var(--text-secondary);line-height:1.7">${b.content}</div>`;
+        else if (b.type === 'image' && b.content) html += `<img src="${b.content}" style="width:100%;border-radius:8px;margin-top:8px;max-height:200px;object-fit:cover">`;
+        else if (b.type === 'youtube' && b.content) {
+          const e = youtubeToEmbed(b.content);
+          if (e) html += `<iframe src="${e}" style="width:100%;height:200px;border:none;border-radius:8px;margin-top:8px"></iframe>`;
+        } else if (b.type === 'educaplay' && b.content) {
+          html += `<iframe src="${b.content}" style="width:100%;height:200px;border:none;border-radius:8px;margin-top:8px"></iframe>`;
+        }
+      });
+    }
+    html += '</div>';
+  });
+
+  document.getElementById('wq-view-content').innerHTML = html;
+  document.getElementById('wq-view-modal').classList.add('open');
+}
+
+function closeWqModal() {
+  document.getElementById('wq-view-modal').classList.remove('open');
+}
+
+function teacherTab(parcialId, el) {
+  document.querySelectorAll('.tp-tab').forEach(t => t.classList.remove('active'));
+  el.classList.add('active');
+  loadTeacherData(parcialId);
+}
+
+// ═══════════════════════════════════════════
+//  LOGIN PROFESOR DIRECTO
+// ═══════════════════════════════════════════
+async function loginTeacher() {
+  const email = document.getElementById('teacher-email').value.trim();
+  const pass  = document.getElementById('teacher-pass').value;
+  const err   = document.getElementById('tl-err');
+  err.style.display = 'none';
+
+  if (!email.endsWith(TEACHER_DOMAIN)) {
+    err.textContent = 'Solo se permiten cuentas @master.blackai.com';
+    err.style.display = 'block'; return;
+  }
+  try {
+    await auth.signInWithEmailAndPassword(email, pass);
+  } catch(e) {
+    err.textContent = 'Correo o contraseña incorrectos';
+    err.style.display = 'block';
+  }
+}
+
+// ═══════════════════════════════════════════
+//  UTILS DE NAVEGACIÓN
+// ═══════════════════════════════════════════
+function showView(viewId) {
+  document.querySelectorAll('.view').forEach(v => v.classList.remove('active'));
+  document.getElementById(viewId).classList.add('active');
+
+  // Mostrar/ocultar autosave bar
+  const inEditor = viewId === 'view-editor';
+  document.getElementById('autosave-bar').style.display = inEditor ? '' : 'none';
+  document.getElementById('theme-btn').style.display = inEditor ? '' : 'none';
+  document.getElementById('preview-btn').style.display = inEditor ? '' : 'none';
+
+  if (viewId !== 'view-editor' && autosaveTimer) {
+    clearInterval(autosaveTimer);
+    autosaveTimer = null;
+  }
+}
+
+function backToDash() {
+  if (autosaveTimer) clearInterval(autosaveTimer);
+  currentParcial = null;
+  applyTheme('');
+  renderDashboard();
+  showView('view-dashboard');
+}
+
+function showApp() {
+  document.getElementById('app').classList.add('visible');
+}
+
+function hideLoading() {
+  const ls = document.getElementById('loading-screen');
+  ls.classList.add('fade-out');
+  setTimeout(() => ls.style.display = 'none', 500);
+}
+
+function showTeacherLogin() {
+  document.getElementById('teacher-login').classList.add('visible');
+}
+
+function setLoadingMsg(msg) {
+  document.getElementById('loading-msg').textContent = msg;
+}
+
+function goToPedagogia() {
+  window.location.href = PEDAGOGY_URL;
+}
+
+async function logout() {
+  if (autosaveTimer) clearInterval(autosaveTimer);
+  if (currentParcial) await saveCurrentParcial();
+  await auth.signOut();
+  window.location.href = PEDAGOGY_URL;
+}
+
+// ═══════════════════════════════════════════
+//  TOAST
+// ═══════════════════════════════════════════
+function showToast(msg, type='') {
+  const t = document.getElementById('toast');
+  t.textContent = msg;
+  t.className = `toast ${type} show`;
+  setTimeout(() => t.classList.remove('show'), 3000);
+}
+
+// ═══════════════════════════════════════════
+//  TEACHER LOGIN ENTER KEY
+// ═══════════════════════════════════════════
+document.getElementById('teacher-pass').addEventListener('keydown', e => {
+  if (e.key === 'Enter') loginTeacher();
+});
+</script>
+</body>
+</html>
