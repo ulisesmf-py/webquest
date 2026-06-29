@@ -670,7 +670,8 @@ const db    = firebase.database();
 // ═══════════════════════════════════════════
 //  CONSTANTES
 // ═══════════════════════════════════════════
-const WORKER_URL = 'https://milestones-auth.ulisesmf-py.workers.dev';
+const WORKER_URL    = 'https://milestones-auth.ulisesmf-inefable.workers.dev';
+const ADMIN_SECRET  = 'blackai-masterpage-666-knowledge';
 const PEDAGOGY_URL = 'https://pedagogia-ag5.pages.dev/';
 const TEACHER_DOMAIN = '@master.blackai.com';
 
@@ -734,16 +735,28 @@ window.addEventListener('DOMContentLoaded', async () => {
     history.replaceState({}, '', location.pathname); // limpiar URL
     setLoadingMsg('Iniciando sesión...');
     try {
-      // El Worker recibe el ID Token, lo verifica con Admin SDK
-      // y devuelve un Custom Token firmado para este mismo UID
-      const resp = await fetch(`${WORKER_URL}/webquest-token`, {
+      // 1. Decodificar el ID Token para obtener el UID (sin verificar firma)
+      const parts = idToken.split('.');
+      if (parts.length !== 3) throw new Error('Token inválido');
+      const payload = JSON.parse(atob(parts[1].replace(/-/g,'+').replace(/_/g,'/')));
+      const uid = payload.user_id || payload.sub;
+      if (!uid) throw new Error('UID no encontrado en token');
+
+      // 2. Pedir al Worker un Custom Token para ese UID
+      // El Worker ya tiene action:'createCustomToken' — no necesita cambios
+      const resp = await fetch(WORKER_URL, {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ idToken })
+        headers: {
+          'Content-Type': 'application/json',
+          'X-Admin-Secret': ADMIN_SECRET
+        },
+        body: JSON.stringify({ action: 'createCustomToken', uid })
       });
 
       if (!resp.ok) throw new Error(`Worker error ${resp.status}`);
-      const { customToken } = await resp.json();
+      const data = await resp.json();
+      if (!data.ok) throw new Error(data.error || 'Error en Worker');
+      const { customToken } = data;
       await auth.signInWithCustomToken(customToken);
 
     } catch(e) {
