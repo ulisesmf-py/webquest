@@ -726,25 +726,33 @@ window.addEventListener('DOMContentLoaded', async () => {
   setLoadingMsg('Verificando sesión...');
   buildThemeModal();
 
-  // ¿Viene con token desde Pedagogía?
-  const params = new URLSearchParams(location.search);
-  const token  = params.get('token');
+  const params   = new URLSearchParams(location.search);
+  const idToken  = params.get('token');   // ID Token que viene de Pedagogía
+  const hasToken = !!idToken;
 
-  if (token) {
+  if (idToken) {
+    history.replaceState({}, '', location.pathname); // limpiar URL
     setLoadingMsg('Iniciando sesión...');
     try {
-      // Cambiar URL para limpiar el token
-      history.replaceState({}, '', location.pathname);
-      await auth.signInWithCustomToken(token);
+      // El Worker recibe el ID Token, lo verifica con Admin SDK
+      // y devuelve un Custom Token firmado para este mismo UID
+      const resp = await fetch(`${WORKER_URL}/webquest-token`, {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ idToken })
+      });
+
+      if (!resp.ok) throw new Error(`Worker error ${resp.status}`);
+      const { customToken } = await resp.json();
+      await auth.signInWithCustomToken(customToken);
+
     } catch(e) {
-      // Si falla el custom token, intentar con ID token directamente
-      try {
-        await auth.signInWithCustomToken(token);
-      } catch(e2) {
-        setLoadingMsg('Error de sesión. Redirigiendo...');
-        setTimeout(goToPedagogia, 2000);
-        return;
-      }
+      console.error('SSO error:', e);
+      // Fallback: mostrar login de profesor o redirigir
+      hideLoading();
+      setLoadingMsg('Error de sesión. Redirigiendo...');
+      setTimeout(goToPedagogia, 2000);
+      return;
     }
   }
 
@@ -762,14 +770,13 @@ window.addEventListener('DOMContentLoaded', async () => {
         await initStudent();
       }
     } else {
-      // Sin sesión — si parece ser profesor, mostrar login
-      // Si no, redirigir a Pedagogía
-      const isDirectAccess = !token;
-      if (isDirectAccess) {
+      // Sin sesión activa
+      if (!hasToken) {
+        // Acceso directo — mostrar login de profesor
         hideLoading();
         showTeacherLogin();
       } else {
-        setLoadingMsg('Sin sesión. Redirigiendo...');
+        setLoadingMsg('Sin sesión. Redirigiendo a Pedagogía...');
         setTimeout(goToPedagogia, 1500);
       }
     }
